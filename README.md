@@ -8,7 +8,7 @@ Implementasi Key Distribution Scenario dengan tiga entitas (KDC, Alice, Bob) di 
 
 | Nama | NRP | Bagian |
 |---|---|---|
-| - | - | AES |
+| Muhammad Abdul Rafi | 5025231093 | AES |
 | Dionysus Sacha Uistean Vladilen | 5025231228 | KDC & jaringan |
 
 ## Skenario
