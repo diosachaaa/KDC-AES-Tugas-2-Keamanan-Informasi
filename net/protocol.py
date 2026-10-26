@@ -48,4 +48,4 @@ def generate_nonce() -> int:
 
 
 def log(tag: str, direction: str, detail: str) -> None:
-    print(f"{f'[{tag}]':<8} {direction:<7}: {detail}", flush=True)
+    print(f"{f'[{tag}]':<8} {direction:<8}: {detail}", flush=True)

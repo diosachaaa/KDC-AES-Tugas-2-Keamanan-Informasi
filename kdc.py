@@ -1,10 +1,11 @@
 import argparse
+import json
+import os
 import secrets
 import socket
 import string
 import threading
-import json
-import os
+
 
 from crypto.api import encrypt, validate_key
 from net.protocol import ID_ALICE, ID_BOB, log, recv_msg, send_msg
