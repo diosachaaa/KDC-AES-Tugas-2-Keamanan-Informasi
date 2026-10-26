@@ -107,12 +107,37 @@ def command_loop(kdc: KDC) -> None:
     raise NotImplementedError
 
 
+def prompt_master_key(kdc: KDC, identity: str) -> None:
+    while True:
+        key = getpass.getpass(f"Masukkan master key untuk {identity} (16 karakter ASCII): ")
+        try:
+            kdc.set_master_key(identity, key)
+            return
+        except ValueError as e:
+            print(f"Kesalahan: {e}. Coba lagi.")
+
+
 def parse_args() -> argparse.Namespace:
-    raise NotImplementedError
+    parser = argparse.ArgumentParser(description="Key Distribution Center (KDC)")
+    parser.add_argument("--host", default=DEFAULT_HOST, help=f"Alamat host untuk KDC (default: {DEFAULT_HOST})")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Port untuk KDC (default: {DEFAULT_PORT})")
+    return parser.parse_args()
 
 
 def main() -> None:
-    raise NotImplementedError
+    args = parse_args()
+    kdc = KDC()
+
+    print("=== Key Distribution Center (KDC) ===")
+    for identity in KNOWN_IDENTITIES:
+        prompt_master_key(kdc, identity)
+
+    try:
+        kdc.serve(args.host, args.port)
+    except KeyboardInterrupt:
+        print("\nKDC dihentikan.")
+    except OSError as e:
+        print(f"Kesalahan socket: KDC tidak dapat dijalankan di {args.host}:{args.port}: {e}")
 
 
 if __name__ == "__main__":
