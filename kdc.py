@@ -15,6 +15,7 @@ KS_ALPHABET = string.ascii_letters + string.digits
 KS_LENGTH = 16
 KNOWN_IDENTITIES = (ID_ALICE, ID_BOB)
 CLIENT_TIMEOUT = 10 # detik
+ACCEPT_POLL = 1.0 # detik
 
 class KDC:
     def __init__(self) -> None:
@@ -95,9 +96,13 @@ class KDC:
             srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             srv.bind((host, port))
             srv.listen()
+            srv.settimeout(ACCEPT_POLL)
             log("KDC", "", f"Menunggu koneksi di {host}:{port}")
             while True:
-                conn, addr = srv.accept()
+                try:
+                    conn, addr = srv.accept()
+                except socket.timeout:
+                    continue
                 threading.Thread(
                     target=self.handle_client, args=(conn, addr), daemon=True
                 ).start()
