@@ -35,7 +35,7 @@ class KDC:
         return key
 
     def generate_session_key(self) -> str:
-        raise NotImplementedError
+        return "".join(secrets.choice(KS_ALPHABET) for _ in range(KS_LENGTH))
 
     def build_step2(self, id_a: str, id_b: str, n1: str) -> dict:
         raise NotImplementedError
