@@ -44,8 +44,8 @@ def _recv_exact(sock: socket.socket, n: int) -> bytes:
 
 
 def generate_nonce() -> int:
-    raise NotImplementedError
+    return secrets.randbits(64)
 
 
 def log(tag: str, direction: str, detail: str) -> None:
-    raise NotImplementedError
+    print(f"{f'[{tag}]':<8} {direction:<7}: {detail}", flush=True)
