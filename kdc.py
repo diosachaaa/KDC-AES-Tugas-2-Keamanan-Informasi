@@ -4,6 +4,7 @@ import secrets
 import socket
 import string
 import threading
+import json
 
 from crypto.api import encrypt, validate_key
 from net.protocol import ID_ALICE, ID_BOB, log, recv_msg, send_msg
@@ -38,7 +39,17 @@ class KDC:
         return "".join(secrets.choice(KS_ALPHABET) for _ in range(KS_LENGTH))
 
     def build_step2(self, id_a: str, id_b: str, n1: str) -> dict:
-        raise NotImplementedError
+        ka = self.get_master_key(id_a)
+        kb = self.get_master_key(id_b)
+        ks = self.generate_session_key()
+        for_a = {"ks": ks, "id_a": id_a, "id_b": id_b, "n1": n1}
+        ticket_b = {"ks": ks, "id_a": id_a}
+
+        return {
+            "step": 2,
+            "for_a": encrypt(json.dumps(for_a), ka),
+            "ticket_b": encrypt(json.dumps(ticket_b), kb),
+        }
 
     def handle_client(self, conn: socket.socket, addr) -> None:
         raise NotImplementedError
