@@ -5,6 +5,7 @@ import socket
 import string
 import threading
 import json
+import os
 
 from crypto.api import encrypt, validate_key
 from net.protocol import ID_ALICE, ID_BOB, log, recv_msg, send_msg
@@ -93,7 +94,8 @@ class KDC:
 
     def serve(self, host: str, port: int) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
-            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if os.name == "posix":
+                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             srv.bind((host, port))
             srv.listen()
             srv.settimeout(ACCEPT_POLL)
