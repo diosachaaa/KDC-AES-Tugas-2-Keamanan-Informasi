@@ -12,7 +12,7 @@ DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 5000
 KS_ALPHABET = string.ascii_letters + string.digits
 KS_LENGTH = 16
-
+KNOWN_IDENTITIES = (ID_ALICE, ID_BOB)
 
 class KDC:
     def __init__(self) -> None:
@@ -20,7 +20,19 @@ class KDC:
         self.lock = threading.Lock()
 
     def set_master_key(self, identity: str, key: str) -> None:
-        raise NotImplementedError
+        identity = identity.upper()
+        if identity not in KNOWN_IDENTITIES:
+            raise ValueError(f"Identitas tidak dikenal: {identity}")
+        validate_key(key)
+        with self.lock:
+            self.master_keys[identity] = key
+
+    def get_master_key(self, identity: str) -> str:
+        with self.lock:
+            key = self.master_keys.get(identity)
+        if key is None:
+            raise ValueError(f"Master key untuk {identity} belum diatur")
+        return key
 
     def generate_session_key(self) -> str:
         raise NotImplementedError
