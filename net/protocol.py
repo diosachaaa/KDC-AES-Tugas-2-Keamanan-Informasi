@@ -19,7 +19,13 @@ def recv_msg(sock: socket.socket) -> dict:
 
 
 def _recv_exact(sock: socket.socket, n: int) -> bytes:
-    raise NotImplementedError
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            raise ConnectionError(f"Koneksi terputus setelah {len(buf)} byte diterima, diharapkan {n} byte")
+        buf.extend(chunk)
+    return bytes(buf)
 
 
 def generate_nonce() -> int:
