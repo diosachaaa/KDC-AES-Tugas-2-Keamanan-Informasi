@@ -14,6 +14,7 @@ DEFAULT_PORT = 5000
 KS_ALPHABET = string.ascii_letters + string.digits
 KS_LENGTH = 16
 KNOWN_IDENTITIES = (ID_ALICE, ID_BOB)
+CLIENT_TIMEOUT = 10 # detik
 
 class KDC:
     def __init__(self) -> None:
@@ -52,10 +53,54 @@ class KDC:
         }
 
     def handle_client(self, conn: socket.socket, addr) -> None:
-        raise NotImplementedError
+        peer = f"{addr[0]}:{addr[1]}"
+        with conn:
+            conn.settimeout(CLIENT_TIMEOUT)
+            try:
+                msg = recv_msg(conn)
+                id_a, id_b, n1 = self._parse_step1(msg)
+                log("STEP 1", "<- Alice", f"dari {peer} id_a={id_a} id_b={id_b} n1={n1}")
+
+                reply = self.build_step2(id_a, id_b, n1)
+                send_msg(conn, reply)
+                log("STEP 2", "-> Alice", f"for_a={reply['for_a'][:16]}... ticket_b={reply['ticket_b'][:16]}...")
+            except ValueError as e:
+                log("ERROR", peer, str(e))
+                try:
+                    send_msg(conn, {"type": "error", "message": str(e)})
+                except OSError:
+                    pass
+            except OSError as e:
+                log("ERROR", peer, f"Kesalahan socket: {e}")
+    
+    @staticmethod
+    def _parse_step1(msg: dict) -> tuple[str, str, str]:
+        if msg.get("step") != 1:
+            raise ValueError("Pesan tidak valid: step harus 1")
+        id_a, id_b, n1 = msg.get("id_a"), msg.get("id_b"), msg.get("n1")
+        if not all(isinstance(x, str) for x in (id_a, id_b, n1)):
+            raise ValueError("Pesan tidak valid: id_a, id_b, dan n1 harus berupa string")
+        id_a, id_b = id_a.upper(), id_b.upper()
+        for identity in (id_a, id_b):
+            if identity not in KNOWN_IDENTITIES:
+                raise ValueError(f"Identitas tidak dikenal: {identity}")
+        if id_a == id_b:
+            raise ValueError("id_a dan id_b tidak boleh sama")
+        if not n1.isdigit():
+            raise ValueError("n1 harus berupa bilangan desimal")
+        return id_a, id_b, n1
 
     def serve(self, host: str, port: int) -> None:
-        raise NotImplementedError
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind((host, port))
+            srv.listen()
+            log("KDC", "", f"Menunggu koneksi di {host}:{port}")
+            while True:
+                conn, addr = srv.accept()
+                threading.Thread(
+                    target=self.handle_client, args=(conn, addr), daemon=True
+                ).start()
 
 
 def command_loop(kdc: KDC) -> None:
