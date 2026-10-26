@@ -1,5 +1,4 @@
 import argparse
-import getpass
 import secrets
 import socket
 import string
@@ -116,12 +115,12 @@ def command_loop(kdc: KDC) -> None:
 
 def prompt_master_key(kdc: KDC, identity: str) -> None:
     while True:
-        key = getpass.getpass(f"Masukkan master key untuk {identity} (16 karakter ASCII): ")
+        key = input(f"Master key {identity} (16 karakter ASCII): ")
         try:
             kdc.set_master_key(identity, key)
             return
         except ValueError as e:
-            print(f"Kesalahan: {e}. Coba lagi.")
+            print(f"Ditolak: {e}. Coba lagi.")
 
 
 def parse_args() -> argparse.Namespace:
