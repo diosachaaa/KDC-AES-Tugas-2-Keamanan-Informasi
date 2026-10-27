@@ -3,7 +3,7 @@ import json
 import socket
 
 from crypto.api import decrypt, encrypt, validate_key
-from net.chat import ChatSession
+from net.chat import ChatSession, run_input_loop
 from net.protocol import ID_ALICE, ID_BOB, generate_nonce, log, recv_msg, send_msg
 
 NETWORK_TIMEOUT = 10
@@ -102,6 +102,10 @@ class Alice:
         kdc = f"{self.kdc_addr[0]}:{self.kdc_addr[1]}"
         bob = f"{self.bob_addr[0]}:{self.bob_addr[1]}"
 
+        if self.chat is not None:
+            self.chat.close()
+            self.chat = None
+
         try:
             ks, ticket_b = self.request_session_key()
         except ValueError as e:
@@ -120,16 +124,14 @@ class Alice:
             log("ERROR", "Bob", f"Tidak bisa terhubung ke Bob di {bob}: {e}")
             return False
 
-        old_conn = self.conn
-        self.conn = conn
         self.session_key = ks
-        if old_conn is not None:
-            old_conn.close()
+        self.chat = ChatSession(conn, ks, ID_BOB.capitalize())
         log("SESI", "", f"Handshake dengan {ID_BOB} selesai. Ks={ks}")
+        self.chat.start()
         return True
 
     def handle_command(self, line: str) -> bool:
-        raise NotImplementedError
+        return False
 
 
 def parse_addr(text: str) -> tuple[str, int]:
@@ -170,13 +172,13 @@ def main() -> None:
         print("Handshake gagal.")
         return
 
+    print("Ketik pesan lalu Enter untuk mengirim. /quit untuk keluar.")
     try:
-        input("Chat belum tersedia. Tekan Enter untuk keluar...")
-    except (KeyboardInterrupt, EOFError):
-        pass
+        run_input_loop(alice)
     finally:
-        if alice.conn is not None:
-            alice.conn.close()
+        if alice.chat is not None:
+            alice.chat.close()
+        print("Alice keluar.")
 
 
 if __name__ == "__main__":

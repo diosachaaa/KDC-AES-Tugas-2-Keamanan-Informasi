@@ -5,7 +5,7 @@ import socket
 import threading
 
 from crypto.api import decrypt, encrypt, validate_key
-from net.chat import ChatSession
+from net.chat import PROMPT, ChatSession, run_input_loop
 from net.protocol import ID_ALICE, ID_BOB, generate_nonce, log, recv_msg, send_msg
 
 DEFAULT_HOST = "0.0.0.0"
@@ -101,13 +101,16 @@ class Bob:
             return
 
         conn.settimeout(None)
+        chat = ChatSession(conn, ks, id_a.capitalize())
         with self.lock:
-            old_conn = self.conn
-            self.conn = conn
+            old_chat = self.chat
+            self.chat = chat
             self.session_key = ks
-        if old_conn is not None:
-            old_conn.close()
+        if old_chat is not None:
+            old_chat.close(notify=False)
         log("SESI", "", f"Handshake dengan {id_a} selesai. Ks={ks}")
+        chat.start()
+        print(PROMPT, end="", flush=True)
 
     def open_server(self, host: str, port: int) -> socket.socket:
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -136,7 +139,7 @@ class Bob:
             ).start()
 
     def handle_command(self, line: str) -> bool:
-        raise NotImplementedError
+        return False
 
 
 def prompt_master_key(bob: Bob) -> None:
@@ -169,12 +172,15 @@ def main() -> None:
         print(f"Kesalahan socket: Bob tidak dapat dijalankan di {args.host}:{args.port}: {e}")
         return
 
+    threading.Thread(target=bob.accept_loop, args=(srv,), daemon=True).start()
+    print("Ketik pesan lalu Enter untuk mengirim. /quit untuk keluar.")
     try:
-        bob.accept_loop(srv)
-    except KeyboardInterrupt:
-        print("\nBob dihentikan.")
+        run_input_loop(bob)
     finally:
         srv.close()
+        if bob.chat is not None:
+            bob.chat.close()
+        print("Bob keluar.")
 
 
 if __name__ == "__main__":
