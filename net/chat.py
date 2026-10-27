@@ -15,6 +15,7 @@ class ChatSession:
         self.verbose = verbose
         self.active = False
         self._receiver: threading.Thread | None = None
+        self._send_lock = threading.Lock()
 
     def start(self) -> None:
         self.active = True
@@ -50,7 +51,14 @@ class ChatSession:
         print(f"\n{text}\n{PROMPT}", end="", flush=True)
 
     def send_text(self, text: str) -> None:
-        raise NotImplementedError
+        if not self.active:
+            raise ConnectionError(f"Sesi dengan {self.peer_name} tidak aktif")
+        ct = encrypt(text, self.session_key)
+        with self._send_lock:
+            send_msg(self.sock, {"type": "chat", "ct": ct})
+        if self.verbose:
+            print(f"    ct={ct}", flush=True)
+        return ct
 
     def close(self) -> None:
         raise NotImplementedError
