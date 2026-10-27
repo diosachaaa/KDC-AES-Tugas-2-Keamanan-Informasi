@@ -18,6 +18,7 @@ class Alice:
         self.master_key: str | None = None
         self.session_key: str | None = None
         self.chat: ChatSession | None = None
+        self.verbose = False
 
     def set_master_key(self, key: str) -> None:
         validate_key(key)
@@ -124,7 +125,7 @@ class Alice:
             return False
 
         self.session_key = ks
-        self.chat = ChatSession(conn, ks, ID_BOB.capitalize())
+        self.chat = ChatSession(conn, ks, ID_BOB.capitalize(), verbose=self.verbose)
         log("SESI", "", f"Handshake dengan {ID_BOB} selesai. Ks={ks}")
         self.chat.start()
         return True
@@ -159,12 +160,14 @@ class Alice:
             print(f"Bob       : {self.bob_addr[0]}:{self.bob_addr[1]}")
             print(f"Sesi      : {'aktif dengan Bob' if active else 'tidak ada'}")
             print(f"Ks        : {self.session_key if active else '-'}")
+            print(f"Verbose   : {'on' if self.verbose else 'off'}")
             return True
 
         if command == "/help":
             print("/setkey <key>   ganti Ka (berlaku di handshake berikutnya)")
             print("/handshake      jalankan ulang step 1-5 dan dapatkan Ks baru")
             print("/status         tampilkan key, alamat, dan status sesi")
+            print("/verbose on|off tampilkan ciphertext hex setiap pesan")
             print("/help           tampilkan daftar perintah")
             print("/quit           keluar")
             return True

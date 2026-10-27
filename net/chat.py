@@ -111,6 +111,9 @@ def run_input_loop(owner) -> None:
             command = line.split()[0].lower()
             if command == "/quit":
                 return
+            if command == "/verbose":
+                _set_verbose(owner, line)
+                continue
             if not owner.handle_command(line):
                 print(f"[!] Perintah tidak dikenal: {command}")
             continue
@@ -123,3 +126,19 @@ def run_input_loop(owner) -> None:
             chat.send_text(line)
         except (OSError, ValueError) as e:
             print(f"[!] Gagal mengirim: {e}")
+
+
+def _set_verbose(owner, line: str) -> None:
+    parts = line.split()
+    if len(parts) == 1:
+        value = not owner.verbose
+    elif parts[1].lower() in ("on", "off"):
+        value = parts[1].lower() == "on"
+    else:
+        print("[!] Format: /verbose on|off")
+        return
+
+    owner.verbose = value
+    if owner.chat is not None:
+        owner.chat.verbose = value
+    print(f"[VERBOSE] {'on: ciphertext ditampilkan' if value else 'off'}")

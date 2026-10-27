@@ -23,6 +23,7 @@ class Bob:
         self.chat: ChatSession | None = None
         self.lock = threading.Lock()
         self.address = "-"
+        self.verbose = False
 
     def set_master_key(self, key: str) -> None:
         validate_key(key)
@@ -101,7 +102,7 @@ class Bob:
             return
 
         conn.settimeout(None)
-        chat = ChatSession(conn, ks, id_a.capitalize())
+        chat = ChatSession(conn, ks, id_a.capitalize(), verbose=self.verbose)
         with self.lock:
             old_chat = self.chat
             self.chat = chat
@@ -165,11 +166,13 @@ class Bob:
             print(f"Alamat    : {self.address}")
             print(f"Sesi      : {'aktif dengan Alice' if active else 'tidak ada'}")
             print(f"Ks        : {ks if active else '-'}")
+            print(f"Verbose   : {'on' if self.verbose else 'off'}")
             return True
 
         if command == "/help":
             print("/setkey <key>   ganti Kb (berlaku untuk ticket berikutnya)")
             print("/status         tampilkan key, alamat, dan status sesi")
+            print("/verbose on|off tampilkan ciphertext hex setiap pesan")
             print("/help           tampilkan daftar perintah")
             print("/quit           keluar")
             return True
