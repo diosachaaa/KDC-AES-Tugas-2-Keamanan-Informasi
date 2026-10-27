@@ -22,6 +22,7 @@ class Bob:
         self.session_key: str | None = None
         self.chat: ChatSession | None = None
         self.lock = threading.Lock()
+        self.address = "-"
 
     def set_master_key(self, key: str) -> None:
         validate_key(key)
@@ -122,7 +123,8 @@ class Bob:
         except OSError:
             srv.close()
             raise
-        log("BOB", "", f"Menunggu Alice di {host}:{port}")
+        self.address = f"{host}:{port}"
+        log("BOB", "", f"Menunggu Alice di {self.address}")
         return srv
 
     def accept_loop(self, srv: socket.socket) -> None:
@@ -138,6 +140,40 @@ class Bob:
             ).start()
 
     def handle_command(self, line: str) -> bool:
+        parts = line.split(maxsplit=1)
+        command = parts[0].lower()
+
+        if command == "/setkey":
+            if len(parts) < 2:
+                print("[!] Format: /setkey <key>")
+                return True
+            try:
+                self.set_master_key(parts[1])
+            except ValueError as e:
+                print(f"[!] Ditolak: {e}")
+                return True
+            print(f"[KEY] Kb diganti menjadi: {parts[1]}")
+            print("      Berlaku untuk ticket berikutnya. Sesi yang sedang berjalan tidak terpengaruh.")
+            return True
+
+        if command == "/status":
+            with self.lock:
+                chat, ks = self.chat, self.session_key
+            active = chat is not None and chat.active
+            print(f"Identitas : {self.identity}")
+            print(f"Kb        : {self.master_key}")
+            print(f"Alamat    : {self.address}")
+            print(f"Sesi      : {'aktif dengan Alice' if active else 'tidak ada'}")
+            print(f"Ks        : {ks if active else '-'}")
+            return True
+
+        if command == "/help":
+            print("/setkey <key>   ganti Kb (berlaku untuk ticket berikutnya)")
+            print("/status         tampilkan key, alamat, dan status sesi")
+            print("/help           tampilkan daftar perintah")
+            print("/quit           keluar")
+            return True
+
         return False
 
 
@@ -172,7 +208,7 @@ def main() -> None:
         return
 
     threading.Thread(target=bob.accept_loop, args=(srv,), daemon=True).start()
-    print("Ketik pesan lalu Enter untuk mengirim. /quit untuk keluar.")
+    print("Ketik pesan lalu Enter untuk mengirim. /help untuk daftar perintah.")
     try:
         run_input_loop(bob)
     finally:
