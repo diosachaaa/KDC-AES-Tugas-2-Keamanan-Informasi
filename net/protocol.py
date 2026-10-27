@@ -27,9 +27,9 @@ def recv_msg(sock: socket.socket) -> dict:
     try:
         obj = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        raise ValueError(f"Pesan tidak valid: {e}")
+        raise ValueError(f"Pesan tidak valid: {e}") from e
     if not isinstance(obj, dict):
-        raise ValueError(f"Pesan tidak valid: diharapkan berupa objek JSON")
+        raise ValueError("Pesan tidak valid: diharapkan berupa objek JSON")
     return obj
 
 
