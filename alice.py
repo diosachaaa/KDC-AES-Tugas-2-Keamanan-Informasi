@@ -130,6 +130,45 @@ class Alice:
         return True
 
     def handle_command(self, line: str) -> bool:
+        parts = line.split(maxsplit=1)
+        command = parts[0].lower()
+
+        if command == "/setkey":
+            if len(parts) < 2:
+                print("[!] Format: /setkey <key>")
+                return True
+            try:
+                self.set_master_key(parts[1])
+            except ValueError as e:
+                print(f"[!] Ditolak: {e}")
+                return True
+            print(f"[KEY] Ka diganti menjadi: {parts[1]}")
+            print("      Berlaku di handshake berikutnya. Ketik /handshake untuk meminta Ks baru.")
+            return True
+
+        if command == "/handshake":
+            if not self.handshake():
+                print("[!] Handshake gagal. Periksa key atau alamat, lalu /handshake lagi.")
+            return True
+
+        if command == "/status":
+            active = self.chat is not None and self.chat.active
+            print(f"Identitas : {self.identity}")
+            print(f"Ka        : {self.master_key}")
+            print(f"KDC       : {self.kdc_addr[0]}:{self.kdc_addr[1]}")
+            print(f"Bob       : {self.bob_addr[0]}:{self.bob_addr[1]}")
+            print(f"Sesi      : {'aktif dengan Bob' if active else 'tidak ada'}")
+            print(f"Ks        : {self.session_key if active else '-'}")
+            return True
+
+        if command == "/help":
+            print("/setkey <key>   ganti Ka (berlaku di handshake berikutnya)")
+            print("/handshake      jalankan ulang step 1-5 dan dapatkan Ks baru")
+            print("/status         tampilkan key, alamat, dan status sesi")
+            print("/help           tampilkan daftar perintah")
+            print("/quit           keluar")
+            return True
+
         return False
 
 
@@ -168,10 +207,9 @@ def main() -> None:
     prompt_master_key(alice)
 
     if not alice.handshake():
-        print("Handshake gagal.")
-        return
+        print("[!] Handshake gagal. Perbaiki dengan /setkey lalu /handshake, atau /quit untuk keluar.")
 
-    print("Ketik pesan lalu Enter untuk mengirim. /quit untuk keluar.")
+    print("Ketik pesan lalu Enter untuk mengirim. /help untuk daftar perintah.")
     try:
         run_input_loop(alice)
     finally:
