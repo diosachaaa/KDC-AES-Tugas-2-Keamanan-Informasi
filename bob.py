@@ -1,5 +1,4 @@
 import argparse
-import getpass
 import json
 import os
 import socket
@@ -130,12 +129,36 @@ class Bob:
         raise NotImplementedError
 
 
+def prompt_master_key(bob: Bob) -> None:
+    while True:
+        key = input(f"Master key {bob.identity} (16 karakter ASCII): ")
+        try:
+            bob.set_master_key(key)
+            return
+        except ValueError as e:
+            print(f"Ditolak: {e}. Coba lagi.")
+
+
 def parse_args() -> argparse.Namespace:
-    raise NotImplementedError
+    parser = argparse.ArgumentParser(description="Bob (responder)")
+    parser.add_argument("--host", default=DEFAULT_HOST, help=f"Alamat host untuk Bob (default: {DEFAULT_HOST})")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Port untuk Bob (default: {DEFAULT_PORT})")
+    return parser.parse_args()
 
 
 def main() -> None:
-    raise NotImplementedError
+    args = parse_args()
+    bob = Bob()
+
+    print("=== Bob ===")
+    prompt_master_key(bob)
+
+    try:
+        bob.serve(args.host, args.port)
+    except KeyboardInterrupt:
+        print("\nBob dihentikan.")
+    except OSError as e:
+        print(f"Kesalahan socket: Bob tidak dapat dijalankan di {args.host}:{args.port}: {e}")
 
 
 if __name__ == "__main__":
