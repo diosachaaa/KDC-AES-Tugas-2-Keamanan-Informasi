@@ -65,7 +65,37 @@ class Alice:
         return ks, ticket_b
 
     def authenticate_with_bob(self, ks: str, ticket_b: str) -> socket.socket:
-        raise NotImplementedError
+        s = socket.create_connection(self.bob_addr, timeout=NETWORK_TIMEOUT)
+        try:
+            send_msg(s, {"step": 3, "ticket_b": ticket_b})
+            log("STEP 3", "-> Bob", f"ticket_b={ticket_b[:16]}...")
+
+            msg = recv_msg(s)
+            if msg.get("type") == "error":
+                raise ValueError(f"Bob menolak: {msg.get('message')}")
+            if msg.get("step") != 4:
+                raise ValueError("Balasan Bob bukan step 4")
+            cipher = msg.get("n2")
+            if not isinstance(cipher, str):
+                raise ValueError("n2 wajib berupa string")
+
+            try:
+                n2 = int(decrypt(cipher, ks))
+            except ValueError as e:
+                send_msg(s, {"type": "error", "message": "N2 tidak bisa didekripsi dengan Ks"})
+                raise ValueError("N2 dari Bob tidak bisa didekripsi dengan Ks") from e
+            log("STEP 4", "<- Bob", f"cipher={cipher[:16]}... N2={n2}")
+
+            fn2 = n2 + 1
+            cipher = encrypt(str(fn2), ks)
+            send_msg(s, {"step": 5, "fn2": cipher})
+            log("STEP 5", "-> Bob", f"f(N2)={fn2} cipher={cipher[:16]}...")
+        except Exception:
+            s.close()
+            raise
+
+        s.settimeout(None)
+        return s
 
     def handshake(self) -> None:
         raise NotImplementedError
