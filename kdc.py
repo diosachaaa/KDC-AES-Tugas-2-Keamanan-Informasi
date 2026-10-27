@@ -92,22 +92,31 @@ class KDC:
             raise ValueError("n1 harus berupa bilangan desimal")
         return id_a, id_b, n1
 
-    def serve(self, host: str, port: int) -> None:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
+    def open_server(self, host: str, port: int) -> socket.socket:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
             if os.name == "posix":
                 srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             srv.bind((host, port))
             srv.listen()
             srv.settimeout(ACCEPT_POLL)
-            log("KDC", "", f"Menunggu koneksi di {host}:{port}")
-            while True:
-                try:
-                    conn, addr = srv.accept()
-                except socket.timeout:
-                    continue
-                threading.Thread(
-                    target=self.handle_client, args=(conn, addr), daemon=True
-                ).start()
+        except OSError:
+            srv.close()
+            raise
+        log("KDC", "", f"Menunggu koneksi di {host}:{port}")
+        return srv
+
+    def accept_loop(self, srv: socket.socket) -> None:
+        while True:
+            try:
+                conn, addr = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            threading.Thread(
+                target=self.handle_client, args=(conn, addr), daemon=True
+            ).start()
 
 
 def command_loop(kdc: KDC) -> None:
@@ -140,11 +149,17 @@ def main() -> None:
         prompt_master_key(kdc, identity)
 
     try:
-        kdc.serve(args.host, args.port)
-    except KeyboardInterrupt:
-        print("\nKDC dihentikan.")
+        srv = kdc.open_server(args.host, args.port)
     except OSError as e:
         print(f"Kesalahan socket: KDC tidak dapat dijalankan di {args.host}:{args.port}: {e}")
+        return
+
+    try:
+        kdc.accept_loop(srv)
+    except KeyboardInterrupt:
+        print("\nKDC dihentikan.")
+    finally:
+        srv.close()
 
 
 if __name__ == "__main__":
