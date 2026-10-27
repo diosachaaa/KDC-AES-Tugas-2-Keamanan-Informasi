@@ -18,7 +18,6 @@ class Alice:
         self.master_key: str | None = None
         self.session_key: str | None = None
         self.chat: ChatSession | None = None
-        self.conn: socket.socket | None = None
 
     def set_master_key(self, key: str) -> None:
         validate_key(key)
