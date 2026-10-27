@@ -18,6 +18,7 @@ class Alice:
         self.master_key: str | None = None
         self.session_key: str | None = None
         self.chat: ChatSession | None = None
+        self.conn: socket.socket | None = None
 
     def set_master_key(self, key: str) -> None:
         validate_key(key)
@@ -98,7 +99,34 @@ class Alice:
         return s
 
     def handshake(self) -> None:
-        raise NotImplementedError
+        kdc = f"{self.kdc_addr[0]}:{self.kdc_addr[1]}"
+        bob = f"{self.bob_addr[0]}:{self.bob_addr[1]}"
+
+        try:
+            ks, ticket_b = self.request_session_key()
+        except ValueError as e:
+            log("ERROR", "KDC", str(e))
+            return False
+        except OSError as e:
+            log("ERROR", "KDC", f"Tidak bisa terhubung ke KDC di {kdc}: {e}")
+            return False
+
+        try:
+            conn = self.authenticate_with_bob(ks, ticket_b)
+        except ValueError as e:
+            log("ERROR", "Bob", str(e))
+            return False
+        except OSError as e:
+            log("ERROR", "Bob", f"Tidak bisa terhubung ke Bob di {bob}: {e}")
+            return False
+
+        old_conn = self.conn
+        self.conn = conn
+        self.session_key = ks
+        if old_conn is not None:
+            old_conn.close()
+        log("SESI", "", f"Handshake dengan {ID_BOB} selesai. Ks={ks}")
+        return True
 
     def handle_command(self, line: str) -> bool:
         raise NotImplementedError
