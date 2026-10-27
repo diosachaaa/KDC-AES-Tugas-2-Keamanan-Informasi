@@ -5,6 +5,7 @@ from crypto.api import decrypt, encrypt
 from net.protocol import recv_msg, send_msg
 
 PROMPT = "> "
+IV_HEX_LEN = 32
 
 
 class ChatSession:
@@ -59,7 +60,7 @@ class ChatSession:
 
         line = f"[{self.peer_name}] {text}"
         if self.verbose:
-            line += f"\n    ct={ct}"
+            line += "\n" + _format_cipher(ct)
         self._display(line)
 
     @staticmethod
@@ -73,7 +74,7 @@ class ChatSession:
         with self._send_lock:
             send_msg(self.sock, {"type": "chat", "ct": ct})
         if self.verbose:
-            print(f"    ct={ct}", flush=True)
+            print(_format_cipher(ct), flush=True)
         return ct
 
     def close(self, notify: bool = True) -> None:
@@ -94,6 +95,12 @@ class ChatSession:
         except OSError:
             pass
         self.sock.close()
+
+
+def _format_cipher(cipher_hex: str) -> str:
+    iv, body = cipher_hex[:IV_HEX_LEN], cipher_hex[IV_HEX_LEN:]
+    blocks = len(body) // IV_HEX_LEN
+    return f"    iv={iv}\n    ct={body}  ({blocks} blok)"
 
 
 def run_input_loop(owner) -> None:
