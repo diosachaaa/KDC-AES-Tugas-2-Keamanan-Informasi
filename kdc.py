@@ -7,6 +7,7 @@ import string
 import threading
 
 from crypto.api import encrypt, validate_key
+from net.chat import PROMPT
 from net.protocol import ID_ALICE, ID_BOB, log, recv_msg, send_msg
 
 DEFAULT_HOST = "0.0.0.0"
@@ -22,6 +23,8 @@ class KDC:
     def __init__(self) -> None:
         self.master_keys: dict[str, str] = {}
         self.lock = threading.Lock()
+        self.address = "-"
+        self.issued = 0
 
     def set_master_key(self, identity: str, key: str) -> None:
         identity = identity.upper()
@@ -45,6 +48,8 @@ class KDC:
         ka = self.get_master_key(id_a)
         kb = self.get_master_key(id_b)
         ks = self.generate_session_key()
+        with self.lock:
+            self.issued += 1
         for_a = {"ks": ks, "id_a": id_a, "id_b": id_b, "n1": n1}
         ticket_b = {"ks": ks, "id_a": id_a}
 
@@ -74,6 +79,7 @@ class KDC:
                     pass
             except OSError as e:
                 log("ERROR", peer, f"Kesalahan socket: {e}")
+        print(PROMPT, end="", flush=True)
 
     @staticmethod
     def _parse_step1(msg: dict) -> tuple[str, str, str]:
@@ -103,7 +109,8 @@ class KDC:
         except OSError:
             srv.close()
             raise
-        log("KDC", "", f"Menunggu koneksi di {host}:{port}")
+        self.address = f"{host}:{port}"
+        log("KDC", "", f"Menunggu koneksi di {self.address}")
         return srv
 
     def accept_loop(self, srv: socket.socket) -> None:
@@ -118,9 +125,60 @@ class KDC:
                 target=self.handle_client, args=(conn, addr), daemon=True
             ).start()
 
+    def handle_command(self, line: str) -> bool:
+        parts = line.split(maxsplit=2)
+        command = parts[0].lower()
+
+        if command == "/setkey":
+            if len(parts) < 3:
+                print("[!] Format: /setkey alice|bob <key>")
+                return True
+            identity, key = parts[1].upper(), parts[2]
+            try:
+                self.set_master_key(identity, key)
+            except ValueError as e:
+                print(f"[!] Ditolak: {e}")
+                return True
+            print(f"[KEY] Master key {identity} di KDC diganti menjadi: {key}")
+            return True
+
+        if command == "/status":
+            with self.lock:
+                keys = dict(self.master_keys)
+            print(f"Alamat    : {self.address}")
+            for identity in KNOWN_IDENTITIES:
+                print(f"Key {identity:<6}: {keys.get(identity, '(belum diatur)')}")
+            print(f"Ks dibuat : {self.issued}")
+            return True
+
+        if command == "/help":
+            print("/setkey alice|bob <key>  ganti master key yang disimpan KDC")
+            print("/status                  tampilkan alamat, master key, dan jumlah Ks")
+            print("/help                    tampilkan daftar perintah")
+            print("/quit                    hentikan KDC")
+            return True
+
+        return False
+
 
 def command_loop(kdc: KDC) -> None:
-    raise NotImplementedError
+    while True:
+        try:
+            line = input(PROMPT)
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+
+        line = line.strip()
+        if not line:
+            continue
+        if not line.startswith("/"):
+            print("[!] KDC hanya menerima perintah. Ketik /help")
+            continue
+        if line.split()[0].lower() == "/quit":
+            return
+        if not kdc.handle_command(line):
+            print(f"[!] Perintah tidak dikenal: {line.split()[0]}. Ketik /help")
 
 
 def prompt_master_key(kdc: KDC, identity: str) -> None:
@@ -154,12 +212,13 @@ def main() -> None:
         print(f"Kesalahan socket: KDC tidak dapat dijalankan di {args.host}:{args.port}: {e}")
         return
 
+    threading.Thread(target=kdc.accept_loop, args=(srv,), daemon=True).start()
+    print("KDC berjalan. Ketik /help untuk daftar perintah.")
     try:
-        kdc.accept_loop(srv)
-    except KeyboardInterrupt:
-        print("\nKDC dihentikan.")
+        command_loop(kdc)
     finally:
         srv.close()
+        print("KDC dihentikan.")
 
 
 if __name__ == "__main__":
