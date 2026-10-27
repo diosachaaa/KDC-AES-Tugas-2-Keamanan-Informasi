@@ -94,3 +94,32 @@ class ChatSession:
         except OSError:
             pass
         self.sock.close()
+
+
+def run_input_loop(owner) -> None:
+    while True:
+        try:
+            line = input(PROMPT)
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+
+        if not line.strip():
+            continue
+
+        if line.startswith("/"):
+            command = line.split()[0].lower()
+            if command == "/quit":
+                return
+            if not owner.handle_command(line):
+                print(f"[!] Perintah tidak dikenal: {command}")
+            continue
+
+        chat = owner.chat
+        if chat is None or not chat.active:
+            print("[!] Belum ada sesi aktif, pesan tidak dikirim")
+            continue
+        try:
+            chat.send_text(line)
+        except (OSError, ValueError) as e:
+            print(f"[!] Gagal mengirim: {e}")
