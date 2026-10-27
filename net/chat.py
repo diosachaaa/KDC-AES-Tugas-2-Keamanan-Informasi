@@ -14,6 +14,7 @@ class ChatSession:
         self.peer_name = peer_name
         self.verbose = verbose
         self.active = False
+        self._closing = False
         self._receiver: threading.Thread | None = None
         self._send_lock = threading.Lock()
 
@@ -26,31 +27,46 @@ class ChatSession:
         while self.active:
             try:
                 msg = recv_msg(self.sock)
-            except (OSError, ValueError):
+            except ValueError as e:
+                if not self._closing:
+                    self._display(f"[SESI] Pesan dari {self.peer_name} rusak ({e}), sesi ditutup")
+                break
+            except OSError:
+                if not self._closing:
+                    self._display(f"[SESI] {self.peer_name} terputus")
                 break
 
-            if msg.get("type") != "chat":
-                continue
-            ct = msg.get("ct")
-            if not isinstance(ct, str):
-                continue
-            try:
-                text = decrypt(ct, self.session_key)
-            except ValueError:
-                self._display(f"[!] Pesan dari {self.peer_name} tidak bisa didekripsi")
-                continue
+            kind = msg.get("type")
+            if kind == "chat":
+                self._handle_chat(msg)
+            elif kind == "error":
+                self._display(f"[!] {self.peer_name} mengirim error: {msg.get('message')}")
+            elif kind == "bye":
+                self._display(f"[SESI] {self.peer_name} menutup sesi")
+                break
 
-            line = f"[{self.peer_name}] {text}"
-            if self.verbose:
-                line += f"\n    ct={ct}"
-            self._display(line)
-        self.active = False
+        self.close(notify=False)
+
+    def _handle_chat(self, msg: dict) -> None:
+        ct = msg.get("ct")
+        if not isinstance(ct, str):
+            return
+        try:
+            text = decrypt(ct, self.session_key)
+        except ValueError:
+            self._display(f"[!] Pesan dari {self.peer_name} tidak bisa didekripsi")
+            return
+
+        line = f"[{self.peer_name}] {text}"
+        if self.verbose:
+            line += f"\n    ct={ct}"
+        self._display(line)
 
     @staticmethod
     def _display(text: str) -> None:
         print(f"\n{text}\n{PROMPT}", end="", flush=True)
 
-    def send_text(self, text: str) -> None:
+    def send_text(self, text: str) -> str:
         if not self.active:
             raise ConnectionError(f"Sesi dengan {self.peer_name} tidak aktif")
         ct = encrypt(text, self.session_key)
@@ -60,5 +76,21 @@ class ChatSession:
             print(f"    ct={ct}", flush=True)
         return ct
 
-    def close(self) -> None:
-        raise NotImplementedError
+    def close(self, notify: bool = True) -> None:
+        if self._closing:
+            return
+        self._closing = True
+
+        if notify and self.active:
+            try:
+                with self._send_lock:
+                    send_msg(self.sock, {"type": "bye"})
+            except OSError:
+                pass
+        self.active = False
+
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.sock.close()
