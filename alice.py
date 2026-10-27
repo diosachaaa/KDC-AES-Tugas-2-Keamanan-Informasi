@@ -133,15 +133,50 @@ class Alice:
 
 
 def parse_addr(text: str) -> tuple[str, int]:
-    raise NotImplementedError
+    host, sep, port = text.rpartition(":")
+    if not sep or not host or not port.isdigit():
+        raise argparse.ArgumentTypeError(f"format harus HOST:PORT, contoh 192.168.1.10:5000 (diterima: {text})")
+    port_num = int(port)
+    if not 1 <= port_num <= 65535:
+        raise argparse.ArgumentTypeError(f"port harus 1-65535 (diterima: {port_num})")
+    return host, port_num
+
+
+def prompt_master_key(alice: Alice) -> None:
+    while True:
+        key = input(f"Master key {alice.identity} (16 karakter ASCII): ")
+        try:
+            alice.set_master_key(key)
+            return
+        except ValueError as e:
+            print(f"Ditolak: {e}. Coba lagi.")
 
 
 def parse_args() -> argparse.Namespace:
-    raise NotImplementedError
+    parser = argparse.ArgumentParser(description="Alice (initiator)")
+    parser.add_argument("--kdc", type=parse_addr, required=True, help="Alamat KDC, format HOST:PORT")
+    parser.add_argument("--bob", type=parse_addr, required=True, help="Alamat Bob, format HOST:PORT")
+    return parser.parse_args()
 
 
 def main() -> None:
-    raise NotImplementedError
+    args = parse_args()
+    alice = Alice(args.kdc, args.bob)
+
+    print("=== Alice ===")
+    prompt_master_key(alice)
+
+    if not alice.handshake():
+        print("Handshake gagal.")
+        return
+
+    try:
+        input("Chat belum tersedia. Tekan Enter untuk keluar...")
+    except (KeyboardInterrupt, EOFError):
+        pass
+    finally:
+        if alice.conn is not None:
+            alice.conn.close()
 
 
 if __name__ == "__main__":
