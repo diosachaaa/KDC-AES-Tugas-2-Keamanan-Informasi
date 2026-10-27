@@ -51,10 +51,28 @@ class Bob:
         return ks, id_a
     
     def send_challenge(self, conn: socket.socket, ks: str) -> int:
-        raise NotImplementedError
+        n2 = generate_nonce()
+        cipher = encrypt(str(n2), ks)
+        send_msg(conn, {"step": 4, "n2": cipher})
+        log("STEP 4", "-> Alice", f"N2={n2} cipher={cipher[:16]}...")
+        return n2
 
-    def verify_response(self, msg: dict, ks: str, n2: int) -> bool:
-        raise NotImplementedError
+    def verify_response(self, msg: dict, ks: str, n2: int) -> None:
+        if msg.get("type") == "error":
+            raise ValueError(f"Alice mengirim error: {msg.get('message')}")
+        if msg.get("step") != 5:
+            raise ValueError("Pesan berikutnya harus step 5")
+        cipher = msg.get("fn2")
+        if not isinstance(cipher, str):
+            raise ValueError("fn2 wajib berupa string")
+
+        try:
+            fn2 = int(decrypt(cipher, ks))
+        except ValueError as e:
+            raise ValueError("Respons step 5 tidak bisa didekripsi dengan Ks") from e
+        if fn2 != n2 + 1:
+            raise ValueError("f(N2) tidak cocok, Alice tidak terbukti memegang Ks")
+        log("STEP 5", "<- Alice", f"f(N2)={fn2} cocok")
 
     def handle_connection(self, conn: socket.socket, addr) -> None:
         raise NotImplementedError
