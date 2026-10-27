@@ -1,7 +1,9 @@
 import argparse
 import getpass
 import json
+import os
 import socket
+import threading
 
 from crypto.api import decrypt, encrypt, validate_key
 from net.chat import ChatSession
@@ -9,7 +11,8 @@ from net.protocol import ID_ALICE, ID_BOB, generate_nonce, log, recv_msg, send_m
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 6000
-
+HANDSHAKE_TIMEOUT = 10  # detik
+ACCEPT_POLL = 1.0  # detik
 
 class Bob:
     identity = ID_BOB
@@ -18,6 +21,8 @@ class Bob:
         self.master_key: str | None = None
         self.session_key: str | None = None
         self.chat: ChatSession | None = None
+        self.conn: socket.socket | None = None
+        self.lock = threading.Lock()
 
     def set_master_key(self, key: str) -> None:
         validate_key(key)
@@ -75,10 +80,51 @@ class Bob:
         log("STEP 5", "<- Alice", f"f(N2)={fn2} cocok")
 
     def handle_connection(self, conn: socket.socket, addr) -> None:
-        raise NotImplementedError
+        peer = f"{addr[0]}:{addr[1]}"
+        conn.settimeout(HANDSHAKE_TIMEOUT)
+        try:
+            ks, id_a = self.handle_ticket(recv_msg(conn))
+            log("STEP 3", "<- Alice", f"dari {peer} ticket valid, id_a={id_a}")
+            n2 = self.send_challenge(conn, ks)
+            self.verify_response(recv_msg(conn), ks, n2)
+        except ValueError as e:
+            log("ERROR", peer, str(e))
+            try:
+                send_msg(conn, {"type": "error", "message": str(e)})
+            except OSError:
+                pass
+            conn.close()
+            return
+        except OSError as e:
+            log("ERROR", peer, f"Kesalahan socket: {e}")
+            conn.close()
+            return
+
+        conn.settimeout(None)
+        with self.lock:
+            old_conn = self.conn
+            self.conn = conn
+            self.session_key = ks
+        if old_conn is not None:
+            old_conn.close()
+        log("SESI", "", f"Handshake dengan {id_a} selesai. Ks={ks}")
 
     def serve(self, host: str, port: int) -> None:
-        raise NotImplementedError
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
+            if os.name == "posix":
+                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind((host, port))
+            srv.listen()
+            srv.settimeout(ACCEPT_POLL)
+            log("BOB", "", f"Menunggu Alice di {host}:{port}")
+            while True:
+                try:
+                    conn, addr = srv.accept()
+                except socket.timeout:
+                    continue
+                threading.Thread(
+                    target=self.handle_connection, args=(conn, addr), daemon=True
+                ).start()
 
     def handle_command(self, line: str) -> bool:
         raise NotImplementedError
