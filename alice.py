@@ -1,5 +1,4 @@
 import argparse
-import getpass
 import json
 import socket
 
@@ -8,6 +7,7 @@ from net.chat import ChatSession
 from net.protocol import ID_ALICE, ID_BOB, generate_nonce, log, recv_msg, send_msg
 
 NETWORK_TIMEOUT = 10
+
 
 class Alice:
     identity = ID_ALICE
@@ -98,7 +98,7 @@ class Alice:
         s.settimeout(None)
         return s
 
-    def handshake(self) -> None:
+    def handshake(self) -> bool:
         kdc = f"{self.kdc_addr[0]}:{self.kdc_addr[1]}"
         bob = f"{self.bob_addr[0]}:{self.bob_addr[1]}"
 

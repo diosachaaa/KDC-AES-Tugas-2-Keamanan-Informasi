@@ -13,6 +13,7 @@ DEFAULT_PORT = 6000
 HANDSHAKE_TIMEOUT = 10  # detik
 ACCEPT_POLL = 1.0  # detik
 
+
 class Bob:
     identity = ID_BOB
 
@@ -53,7 +54,7 @@ class Bob:
         if id_a != ID_ALICE:
             raise ValueError(f"Ticket berasal dari identitas tidak dikenal: {id_a}")
         return ks, id_a
-    
+
     def send_challenge(self, conn: socket.socket, ks: str) -> int:
         n2 = generate_nonce()
         cipher = encrypt(str(n2), ks)

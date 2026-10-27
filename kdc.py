@@ -6,7 +6,6 @@ import socket
 import string
 import threading
 
-
 from crypto.api import encrypt, validate_key
 from net.protocol import ID_ALICE, ID_BOB, log, recv_msg, send_msg
 
@@ -15,8 +14,9 @@ DEFAULT_PORT = 5000
 KS_ALPHABET = string.ascii_letters + string.digits
 KS_LENGTH = 16
 KNOWN_IDENTITIES = (ID_ALICE, ID_BOB)
-CLIENT_TIMEOUT = 10 # detik
-ACCEPT_POLL = 1.0 # detik
+CLIENT_TIMEOUT = 10  # detik
+ACCEPT_POLL = 1.0  # detik
+
 
 class KDC:
     def __init__(self) -> None:
@@ -74,7 +74,7 @@ class KDC:
                     pass
             except OSError as e:
                 log("ERROR", peer, f"Kesalahan socket: {e}")
-    
+
     @staticmethod
     def _parse_step1(msg: dict) -> tuple[str, str, str]:
         if msg.get("step") != 1:
